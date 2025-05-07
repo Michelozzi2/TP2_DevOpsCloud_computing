@@ -1,8 +1,4 @@
-const API_URL = (window.env && window.env.REACT_APP_API_URL) || 
-                process.env.REACT_APP_API_URL || 
-                'http://localhost:5000/api';
-
-console.log('Using API URL:', API_URL);
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Helper function for handling fetch responses
 const handleResponse = async (response) => {
