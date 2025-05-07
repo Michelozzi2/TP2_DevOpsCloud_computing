@@ -1,0 +1,123 @@
+provider "aws" {
+  region = "eu-west-3"  # Region Paris
+}
+
+# VPC et sous-réseaux
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+  enable_dns_support = true
+  enable_dns_hostnames = true
+  tags = {
+    Name = "campaign-manager-vpc"
+  }
+}
+
+resource "aws_subnet" "public_a" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "eu-west-3a"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "public-subnet-a"
+  }
+}
+
+resource "aws_subnet" "public_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "eu-west-3b"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "public-subnet-b"
+  }
+}
+
+# ECR repositories
+resource "aws_ecr_repository" "frontend" {
+  name = "campaign-manager-frontend"
+}
+
+resource "aws_ecr_repository" "backend" {
+  name = "campaign-manager-backend"
+}
+
+# ECS Cluster
+resource "aws_ecs_cluster" "main" {
+  name = "campaign-manager-cluster"
+}
+
+# MongoDB dans RDS
+resource "aws_db_subnet_group" "mongodb" {
+  name       = "mongodb-subnet-group"
+  subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+}
+
+resource "aws_security_group" "mongodb" {
+  name        = "mongodb-sg"
+  vpc_id      = aws_vpc.main.id
+  
+  ingress {
+    from_port   = 27017
+    to_port     = 27017
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+  
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# ECS Task Definitions et Services
+resource "aws_ecs_task_definition" "frontend" {
+  family                   = "frontend"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  
+  container_definitions = jsonencode([
+    {
+      name      = "frontend"
+      image     = "${aws_ecr_repository.frontend.repository_url}:latest"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+          hostPort      = 80
+        }
+      ]
+    }
+  ])
+}
+
+resource "aws_ecs_task_definition" "backend" {
+  family                   = "backend"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  
+  container_definitions = jsonencode([
+    {
+      name      = "backend"
+      image     = "${aws_ecr_repository.backend.repository_url}:latest"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 5000
+          hostPort      = 5000
+        }
+      ]
+      environment = [
+        {
+          name  = "MONGODB_URI"
+          value = "mongodb://mongodb:27017/campaigns"
+        }
+      ]
+    }
+  ])
+}
