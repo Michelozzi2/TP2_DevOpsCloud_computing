@@ -229,7 +229,7 @@ resource "aws_ecs_task_definition" "backend" {
       environment = [
         {
           name  = "MONGODB_URI"
-          value = "mongodb://mongodb:27017/campaigns"
+          value = "mongodb+srv://mat_test:<db_password>@cluster0.xoxjzbh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
         }
       ]
       logConfiguration = {
