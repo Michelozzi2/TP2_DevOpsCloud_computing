@@ -1,70 +1,74 @@
-# Getting Started with Create React App
+# Campaign Manager Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Application React pour la gestion des campagnes publicitaires. Cette interface permet aux utilisateurs de créer, modifier, visualiser et supprimer des campagnes.
 
-## Available Scripts
+## Technologies utilisées
 
-In the project directory, you can run:
+- React 19.1.0
+- React DOM 19.1.0
+- React Scripts 5.0.1
+- CSS pour le styling
 
-### `npm start`
+## Structure du projet
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+frontend/
+├── public/              # Fichiers statiques
+├── src/                 # Code source
+│   ├── components/      # Composants React
+│   │   ├── CampaignForm.js    # Formulaire de création/édition
+│   │   └── CampaignList.js    # Liste des campagnes
+│   ├── services/        # Services (API, etc.)
+│   │   └── api.js       # Fonctions de communication avec l'API
+│   ├── App.js           # Composant principal
+│   ├── App.css          # Styles CSS
+│   └── index.js         # Point d'entrée
+├── .env                 # Variables d'environnement
+└── Dockerfile           # Configuration Docker
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Scripts disponibles
 
-### `npm test`
+```bash
+# Installation des dépendances
+npm install
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# Démarrage en mode développement
+npm start
 
-### `npm run build`
+# Construction pour la production
+npm run build
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+# Exécution des tests
+npm test
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Variables d'environnement
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- `REACT_APP_API_URL`: URL de l'API backend (par défaut: http://localhost:5000/api)
 
-### `npm run eject`
+## Fonctionnalités
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. **Affichage des campagnes**: Liste de toutes les campagnes avec leurs détails
+2. **Création de campagnes**: Formulaire pour créer une nouvelle campagne
+3. **Modification de campagnes**: Édition des campagnes existantes
+4. **Suppression de campagnes**: Possibilité de supprimer des campagnes
+5. **Filtrage des campagnes**: Par statut (active, paused, completed, draft)
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Conteneurisation
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+L'application est conteneurisée avec Docker. Pour construire l'image:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+docker build -t campaign-manager-frontend .
+```
 
-## Learn More
+Pour exécuter le conteneur:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+docker run -p 80:80 campaign-manager-frontend
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Intégration avec le backend
 
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+L'application communique avec le backend via des appels API REST définis dans `src/services/api.js`. Assurez-vous que l'URL de l'API est correctement configurée dans le fichier `.env`.
