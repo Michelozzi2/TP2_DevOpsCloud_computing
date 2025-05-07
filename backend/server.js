@@ -132,7 +132,7 @@ app.patch('/api/campaigns/:id/status', async (req, res) => {
 });
 
 // Connexion à MongoDB
-const mongoURI = process.env.MONGODB_URI || 'mongodb://mongodb:27017/campaigns';
+const mongoURI = process.env.MONGODB_URI || 'mongodb+srv://mat_test:<db_password>@cluster0.xoxjzbh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 mongoose.connect(mongoURI)
   .then(() => console.log('Connecté à MongoDB:', mongoURI))
   .catch(err => console.error('Erreur de connexion à MongoDB:', err));
