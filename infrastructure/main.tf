@@ -32,6 +32,39 @@ resource "aws_subnet" "public_b" {
   }
 }
 
+# Internet Gateway pour VPC
+resource "aws_internet_gateway" "gw" {
+  vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "campaign-manager-igw"
+  }
+}
+
+# Route table pour accès Internet
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+  
+  tags = {
+    Name = "campaign-manager-route-table"
+  }
+}
+
+# Association de la table de routage aux sous-réseaux
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_b" {
+  subnet_id      = aws_subnet.public_b.id
+  route_table_id = aws_route_table.public.id
+}
+
 # ECR repositories
 resource "aws_ecr_repository" "frontend" {
   name = "campaign-manager-frontend"
@@ -71,31 +104,54 @@ resource "aws_security_group" "mongodb" {
   }
 }
 
-# ECS Task Definitions et Services
-resource "aws_ecs_task_definition" "frontend" {
-  family                   = "frontend"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn  # Ajoutez cette ligne
-
+# Groupes de sécurité pour les services
+resource "aws_security_group" "frontend" {
+  name        = "frontend-sg"
+  vpc_id      = aws_vpc.main.id
   
-  container_definitions = jsonencode([
-    {
-      name      = "frontend"
-      image     = "${aws_ecr_repository.frontend.repository_url}:latest"
-      essential = true
-      portMappings = [
-        {
-          containerPort = 80
-          hostPort      = 80
-        }
-      ]
-    }
-  ])
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  tags = {
+    Name = "frontend-security-group"
+  }
 }
 
+resource "aws_security_group" "backend" {
+  name        = "backend-sg"
+  vpc_id      = aws_vpc.main.id
+  
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  tags = {
+    Name = "backend-security-group"
+  }
+}
+
+# IAM Role for ECS
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "ecs-task-execution-role"
 
@@ -118,14 +174,46 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# ECS Task Definitions
+resource "aws_ecs_task_definition" "frontend" {
+  family                   = "frontend"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  
+  container_definitions = jsonencode([
+    {
+      name      = "frontend"
+      image     = "${aws_ecr_repository.frontend.repository_url}:latest"
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+          hostPort      = 80
+        }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/frontend"
+          "awslogs-region"        = "eu-west-3"
+          "awslogs-stream-prefix" = "ecs"
+          "awslogs-create-group"  = "true"
+        }
+      }
+    }
+  ])
+}
+
 resource "aws_ecs_task_definition" "backend" {
   family                   = "backend"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn  # Ajoutez cette ligne
-
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   
   container_definitions = jsonencode([
     {
@@ -144,6 +232,59 @@ resource "aws_ecs_task_definition" "backend" {
           value = "mongodb://mongodb:27017/campaigns"
         }
       ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/backend"
+          "awslogs-region"        = "eu-west-3"
+          "awslogs-stream-prefix" = "ecs"
+          "awslogs-create-group"  = "true"
+        }
+      }
     }
   ])
+}
+
+# ECS Services
+resource "aws_ecs_service" "frontend" {
+  name            = "frontend-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.frontend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  
+  network_configuration {
+    subnets          = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+    security_groups  = [aws_security_group.frontend.id]
+    assign_public_ip = true
+  }
+  
+  depends_on = [aws_internet_gateway.gw]
+}
+
+resource "aws_ecs_service" "backend" {
+  name            = "backend-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.backend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+  
+  network_configuration {
+    subnets          = [aws_subnet.public_a.id, aws_subnet.public_b.id]
+    security_groups  = [aws_security_group.backend.id]
+    assign_public_ip = true
+  }
+  
+  depends_on = [aws_internet_gateway.gw]
+}
+
+# CloudWatch Log Groups
+resource "aws_cloudwatch_log_group" "frontend" {
+  name              = "/ecs/frontend"
+  retention_in_days = 30
+}
+
+resource "aws_cloudwatch_log_group" "backend" {
+  name              = "/ecs/backend"
+  retention_in_days = 30
 }
